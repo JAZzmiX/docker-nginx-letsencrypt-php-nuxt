@@ -1,0 +1,61 @@
+version: "3"
+
+services:
+  php:
+    image: php:fpm
+    restart: always
+    volumes:
+      - ./site:/var/www/html
+    networks:
+        - code-network
+
+  nuxt:
+    build: ./site/
+    restart: always
+    container_name: nuxt_app
+    command:
+      "npm run start"
+    ports:
+       - 3000:3000
+    networks:
+        - code-network
+
+  web:
+     image: nginx
+     restart: always
+     container_name: nuxt_nginx
+     depends_on:
+       - nuxt
+     volumes:
+       - ./site:/var/www/html
+       - ./nginx.conf:/etc/nginx/conf.d/default.conf
+       - ./logs:/var/log/nginx
+     networks:
+            - code-network
+
+  https-portal:
+     image: steveltn/https-portal:1
+     depends_on:
+       - web
+     ports:
+       - 80:80
+       - 443:443
+     restart: always
+     #
+     # Save our SSL certs between runs so they aren't regenerated on every single run.
+     #
+     volumes:
+       - ./ssl_certs:/var/lib/https-portal
+     environment:
+       DOMAINS: 'localhost -> http://web:80 #local'
+      #  DOMAINS: 'your-domain.com -> http://web:80 #production' # Uncomment when you are ready for production.
+      #
+      # Allow larger files to be uploaded
+      #
+       CLIENT_MAX_BODY_SIZE: 64M
+     networks:
+          - code-network
+
+networks:
+    code-network:
+        driver: bridge
